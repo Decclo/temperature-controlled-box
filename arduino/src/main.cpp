@@ -32,7 +32,7 @@
 
 // Pin for onewire interface. The sensors are installed in series running without parasitic power.
 #define ONE_WIRE_BUS 10
-#define TEMPERATURE_PRECISION 9
+#define TEMPERATURE_PRECISION 12
 
 // Pin on which to run the PWM for the motor controller in charge of the fan. The H-bridge is hard-wired.
 #define FAN_PWM 11
@@ -60,7 +60,7 @@ void printAddress(DeviceAddress deviceAddress);
 void printTemperature(DeviceAddress deviceAddress);
 
 // Function to print the address and temperature for a onewire device
-void printTemperature(DeviceAddress deviceAddress);
+void printData(DeviceAddress deviceAddress);
 
 
 // ##########################################
@@ -92,9 +92,10 @@ void setup()
   if (sensors.isParasitePowerMode()) Serial.println("ON");
   else Serial.println("OFF");
 
+/*
   if (!sensors.getAddress(sensor1, 0)) Serial.println("Unable to find address for Device 0");
   if (!sensors.getAddress(sensor2, 1)) Serial.println("Unable to find address for Device 1");
-
+*/
   // show the addresses we found on the bus
   Serial.print("Device 0 Address: ");
   printAddress(sensor1);
@@ -128,6 +129,16 @@ void setup()
 */
 void loop()
 {
+  // call sensors.requestTemperatures() to issue a global temperature
+  // request to all devices on the bus
+  Serial.print("Requesting temperatures...");
+  sensors.requestTemperatures();
+  Serial.println("DONE");
+
+  // print the device information
+  printData(sensor1);
+  printData(sensor2);
+  delay(1000);
 }
 
 
