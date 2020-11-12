@@ -16,12 +16,12 @@
 // ##########################################
 #include <Arduino.h>
 #include <OneWire.h>
-#include "support_func.h"
+#include <DallasTemperature.h>
 
 
 
 // ##########################################
-// ##              Defines                 ##
+// ##               Settings               ##
 // ##########################################
 /*
  * This section defines the settings for the program, such as pin numbers and operation modi.
@@ -31,8 +31,8 @@
 #define DEBUGMODE 0
 
 // Pin for onewire interface. The sensors are installed in series running without parasitic power.
-OneWire  ds(10);  // on pin 10 (a 4.7K resistor is necessary)
-OneWire_Customized onew();
+#define ONE_WIRE_BUS 10
+#define TEMPERATURE_PRECISION 9
 
 // Pin on which to run the PWM for the motor controller in charge of the fan. The H-bridge is hard-wired.
 #define FAN_PWM 11
@@ -40,7 +40,27 @@ OneWire_Customized onew();
 // Pin controlling the relay in charge of the heating element.
 #define HEAT_RELAY_PIN 8
 
-void check_onewire(void);
+// ##########################################
+// ##         Objects and functions        ##
+// ##########################################
+
+// Onewire initialization and sensor setup
+OneWire oneWire(10);  // on pin 10 (a 4.7K resistor is necessary)
+DallasTemperature sensors(&oneWire);
+
+// Addresses for the sensors
+DeviceAddress sensor1 = {0x28, 0x69, 0xA1, 0x69, 0x35, 0x19, 0x01, 0x5D};
+DeviceAddress sensor2 = {0x28, 0xD5, 0x55, 0x6B, 0x35, 0x19, 0x01, 0x99};
+
+
+// Function to read out onewire addresses 
+void printAddress(DeviceAddress deviceAddress);
+
+// Function to print the temperature for a onewire device
+void printTemperature(DeviceAddress deviceAddress);
+
+// Function to print the address and temperature for a onewire device
+void printTemperature(DeviceAddress deviceAddress);
 
 
 // ##########################################
@@ -51,7 +71,51 @@ void check_onewire(void);
 */
 void setup()
 {
+  // Initializations //
+
+  // Serial
   Serial.begin(9600);
+  Serial.print("Serial initialized!\n\n");
+
+  // OneWire sensors
+  Serial.print("Initializing OneWire sensors...\n");
+  sensors.begin();
+
+  // locate devices on the bus
+  Serial.print("Locating devices...");
+  Serial.print("Found ");
+  Serial.print(sensors.getDeviceCount(), DEC);
+  Serial.println(" devices.");
+
+  // report parasite power requirements
+  Serial.print("Parasite power is: ");
+  if (sensors.isParasitePowerMode()) Serial.println("ON");
+  else Serial.println("OFF");
+
+  if (!sensors.getAddress(sensor1, 0)) Serial.println("Unable to find address for Device 0");
+  if (!sensors.getAddress(sensor2, 1)) Serial.println("Unable to find address for Device 1");
+
+  // show the addresses we found on the bus
+  Serial.print("Device 0 Address: ");
+  printAddress(sensor1);
+  Serial.println();
+
+  Serial.print("Device 1 Address: ");
+  printAddress(sensor2);
+  Serial.println();
+
+  // set the resolution to 9 bit per device
+  sensors.setResolution(sensor1, TEMPERATURE_PRECISION);
+  sensors.setResolution(sensor2, TEMPERATURE_PRECISION);
+
+  Serial.print("Device 0 Resolution: ");
+  Serial.print(sensors.getResolution(sensor1), DEC);
+  Serial.println();
+
+  Serial.print("Device 1 Resolution: ");
+  Serial.print(sensors.getResolution(sensor2), DEC);
+  Serial.println();
+  Serial.print("OneWire sensors initialized!\n\n");
 }
 
 
@@ -64,117 +128,42 @@ void setup()
 */
 void loop()
 {
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
 
-void check_onewire(void)
+
+
+// function to print a device address
+void printAddress(DeviceAddress deviceAddress)
 {
-  byte i;
-  byte present = 0;
-  byte type_s;
-  byte data[12];
-  byte addr[8];
-  float celsius, fahrenheit;
-  
-  if ( !ds.search(addr)) {
-    Serial.println("No more addresses.");
-    Serial.println();
-    ds.reset_search();
-    delay(250);
-    return;
-  }
-  
-  Serial.print("ROM =");
-  for( i = 0; i < 8; i++) {
-    Serial.write(' ');
-    Serial.print(addr[i], HEX);
-  }
-
-  if (OneWire::crc8(addr, 7) != addr[7]) {
-      Serial.println("CRC is not valid!");
-      return;
-  }
-  Serial.println();
- 
-  // the first ROM byte indicates which chip
-  switch (addr[0]) {
-    case 0x10:
-      Serial.println("  Chip = DS18S20");  // or old DS1820
-      type_s = 1;
-      break;
-    case 0x28:
-      Serial.println("  Chip = DS18B20");
-      type_s = 0;
-      break;
-    case 0x22:
-      Serial.println("  Chip = DS1822");
-      type_s = 0;
-      break;
-    default:
-      Serial.println("Device is not a DS18x20 family device.");
-      return;
-  } 
-
-  ds.reset();
-  ds.select(addr);
-  ds.write(0x44, 0);        // start conversion, with parasite power on at the end
-  
-  delay(1000);     // maybe 750ms is enough, maybe not
-  // we might do a ds.depower() here, but the reset will take care of it.
-  
-  present = ds.reset();
-  ds.select(addr);    
-  ds.write(0xBE);         // Read Scratchpad
-
-  Serial.print("  Data = ");
-  Serial.print(present, HEX);
-  Serial.print(" ");
-  for ( i = 0; i < 9; i++) {           // we need 9 bytes
-    data[i] = ds.read();
-    Serial.print(data[i], HEX);
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    if (deviceAddress[i] < 16) Serial.print("0");
+    Serial.print(deviceAddress[i], HEX);
     Serial.print(" ");
   }
-  Serial.print(" CRC=");
-  Serial.print(OneWire::crc8(data, 8), HEX);
-  Serial.println();
+}
 
-  // Convert the data to actual temperature
-  // because the result is a 16 bit signed integer, it should
-  // be stored to an "int16_t" type, which is always 16 bits
-  // even when compiled on a 32 bit processor.
-  int16_t raw = (data[1] << 8) | data[0];
-  if (type_s) {
-    raw = raw << 3; // 9 bit resolution default
-    if (data[7] == 0x10) {
-      // "count remain" gives full 12 bit resolution
-      raw = (raw & 0xFFF0) + 12 - data[6];
-    }
-  } else {
-    byte cfg = (data[4] & 0x60);
-    // at lower res, the low bits are undefined, so let's zero them
-    if (cfg == 0x00) raw = raw & ~7;  // 9 bit resolution, 93.75 ms
-    else if (cfg == 0x20) raw = raw & ~3; // 10 bit res, 187.5 ms
-    else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
-    //// default is 12 bit resolution, 750 ms conversion time
+// function to print the temperature for a device
+void printTemperature(DeviceAddress deviceAddress)
+{
+  float tempC = sensors.getTempC(deviceAddress);
+  if(tempC == DEVICE_DISCONNECTED_C) 
+  {
+    Serial.println("Error: Could not read temperature data");
+    return;
   }
-  celsius = (float)raw / 16.0;
-  fahrenheit = celsius * 1.8 + 32.0;
-  Serial.print("  Temperature = ");
-  Serial.print(celsius);
-  Serial.print(" Celsius, ");
-  Serial.print(fahrenheit);
-  Serial.println(" Fahrenheit");
+  Serial.print("Temp C: ");
+  Serial.print(tempC);
+  Serial.print(" Temp F: ");
+  Serial.print(DallasTemperature::toFahrenheit(tempC));
+}
+
+// main function to print information about a device
+void printData(DeviceAddress deviceAddress)
+{
+  Serial.print("Device Address: ");
+  printAddress(deviceAddress);
+  Serial.print(" ");
+  printTemperature(deviceAddress);
+  Serial.println();
 }
