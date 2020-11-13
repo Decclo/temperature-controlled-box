@@ -40,8 +40,10 @@
 // Pin controlling the relay in charge of the heating element.
 #define HEAT_RELAY_PIN 8
 
+
+
 // ##########################################
-// ##         Objects and functions        ##
+// ##   Objects and Function Declaraions   ##
 // ##########################################
 
 // Onewire initialization and sensor setup
@@ -63,12 +65,10 @@ void printTemperature(DeviceAddress deviceAddress);
 void printData(DeviceAddress deviceAddress);
 
 
+
 // ##########################################
 // ##                Setup                 ##
 // ##########################################
-/*
- * The setup function takes care of initialization, and runs only once.
-*/
 void setup()
 {
   // Initializations //
@@ -124,9 +124,6 @@ void setup()
 // ##########################################
 // ##                 Main                 ##
 // ##########################################
-/*
- * The loop function subsitudes the while(1){} function.
-*/
 void loop()
 {
   // call sensors.requestTemperatures() to issue a global temperature
@@ -143,6 +140,10 @@ void loop()
 
 
 
+// ##########################################
+// ##               Functions              ##
+// ##########################################
+
 // function to print a device address
 void printAddress(DeviceAddress deviceAddress)
 {
@@ -153,6 +154,7 @@ void printAddress(DeviceAddress deviceAddress)
     Serial.print(" ");
   }
 }
+
 
 // function to print the temperature for a device
 void printTemperature(DeviceAddress deviceAddress)
@@ -168,6 +170,7 @@ void printTemperature(DeviceAddress deviceAddress)
   Serial.print(" Temp F: ");
   Serial.print(DallasTemperature::toFahrenheit(tempC));
 }
+
 
 // main function to print information about a device
 void printData(DeviceAddress deviceAddress)
