@@ -27,15 +27,12 @@
  * This section defines the settings for the program, such as pin numbers and operation modi.
 */
 
-// Should the code be compiled with additional outputs? 0=off, 1=normal
-#define DEBUGMODE 0
-
 // Pin for onewire interface. The sensors are installed in series running without parasitic power.
 #define ONE_WIRE_BUS 10
 #define TEMPERATURE_PRECISION 12
 
 // Pin on which to run the PWM for the motor controller in charge of the fan. The H-bridge is hard-wired.
-#define FAN_PWM 11
+#define FAN_PWM 9
 
 // Pin controlling the relay in charge of the heating element.
 #define HEAT_RELAY_PIN 8
@@ -73,11 +70,12 @@ void setup()
 {
   // Initializations //
 
-  // Serial
+  // ==== Serial ====
   Serial.begin(9600);
   Serial.print("Serial initialized!\n\n");
 
-  // OneWire sensors
+
+  // ==== OneWire sensors ====
   Serial.print("Initializing OneWire sensors...\n");
   sensors.begin();
 
@@ -92,10 +90,6 @@ void setup()
   if (sensors.isParasitePowerMode()) Serial.println("ON");
   else Serial.println("OFF");
 
-/*
-  if (!sensors.getAddress(sensor1, 0)) Serial.println("Unable to find address for Device 0");
-  if (!sensors.getAddress(sensor2, 1)) Serial.println("Unable to find address for Device 1");
-*/
   // show the addresses we found on the bus
   Serial.print("Device 0 Address: ");
   printAddress(sensor1);
@@ -117,6 +111,10 @@ void setup()
   Serial.print(sensors.getResolution(sensor2), DEC);
   Serial.println();
   Serial.print("OneWire sensors initialized!\n\n");
+
+  // ==== Fan Control ====
+  // Initialize PWM pin as PWM output
+  pinMode(FAN_PWM, OUTPUT);
 }
 
 
@@ -126,6 +124,7 @@ void setup()
 // ##########################################
 void loop()
 {
+  /*
   // call sensors.requestTemperatures() to issue a global temperature
   // request to all devices on the bus
   Serial.print("Requesting temperatures...");
@@ -136,6 +135,23 @@ void loop()
   printData(sensor1);
   printData(sensor2);
   delay(1000);
+  */
+
+  int fan_pwm_value = 0;
+  for (int i = 100; i < 255; i++)
+  {
+    fan_pwm_value = i;
+    Serial.println(fan_pwm_value);
+    analogWrite(FAN_PWM, fan_pwm_value);
+  }
+  delay(5000);
+  for (int i = 255; i >= 100; i--)
+  {
+    fan_pwm_value = i;
+    Serial.println(fan_pwm_value);
+    analogWrite(FAN_PWM, fan_pwm_value);
+  }
+  delay(5000);
 }
 
 
