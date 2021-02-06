@@ -115,6 +115,10 @@ void setup()
   // ==== Fan Control ====
   // Initialize PWM pin as PWM output
   pinMode(FAN_PWM, OUTPUT);
+
+  // ==== Heat Relay Control ====
+  // Initialize IO pin as output
+  pinMode(HEAT_RELAY_PIN, OUTPUT);
 }
 
 
@@ -124,7 +128,7 @@ void setup()
 // ##########################################
 void loop()
 {
-  /*
+  /* Example Code
   // call sensors.requestTemperatures() to issue a global temperature
   // request to all devices on the bus
   Serial.print("Requesting temperatures...");
@@ -135,7 +139,6 @@ void loop()
   printData(sensor1);
   printData(sensor2);
   delay(1000);
-  */
 
   int fan_pwm_value = 0;
   for (int i = 100; i < 255; i++)
@@ -152,6 +155,93 @@ void loop()
     analogWrite(FAN_PWM, fan_pwm_value);
   }
   delay(5000);
+  */
+
+  Serial.print("\nCommands:\n");
+  Serial.print("\t1 - Read temperature\n");
+  Serial.print("\t2 - Set PWM\n");
+  Serial.print("\t3 - Change relay state to on\n");
+  Serial.print("\t4 - Change relay state to off\n");
+  Serial.print("Choice: ");
+  char rx_byte = 0;
+  while(Serial.available() == 0)
+  {
+    delay(100);
+  }
+
+  if (Serial.available() > 0) 
+  {    // is a character available?
+    rx_byte = Serial.read();       // get the character
+    Serial.print(rx_byte);
+    Serial.print("\n");
+
+    // check if a number was received
+    if (rx_byte == '1')
+    {
+      Serial.print("\nReading temperature sensors. Press anykey to return.\n");
+      bool read_temp = 1;
+      while (read_temp)
+      {
+        sensors.requestTemperatures();
+        printData(sensor1);
+        printData(sensor2);
+        Serial.print("\n");
+
+        char rx_byte_alt = 0;
+        if (Serial.available() > 0) 
+        {    // is a character available?
+          rx_byte_alt = Serial.read();       // get the character
+          read_temp = 0;
+        }
+      }
+    }
+    else if (rx_byte == '2')
+    {
+      char rx_byte_alt = 0;
+      String rx_str_alt = "";
+      bool read_str = 1;
+
+      Serial.print("\nPlease input PWM between 100 to 255: ");
+
+      while (read_str)
+      {
+        if (Serial.available() > 0) 
+        {    // is a character available?
+          rx_byte_alt = Serial.read();       // get the character
+          
+          if (rx_byte_alt != '\n') 
+          {
+            // a character of the string was received
+            rx_str_alt += rx_byte_alt;
+            Serial.print(rx_byte_alt);
+            Serial.print("\n");
+          }
+          else 
+          {
+            Serial.print("Setting pwm to ");
+            Serial.println(rx_str_alt.toInt());
+            Serial.println("\n");
+            analogWrite(FAN_PWM, rx_str_alt.toInt());
+            read_str = 0;
+          }
+        }
+      }
+    }
+    else if (rx_byte == '3')
+    {
+      Serial.print("\nTurning on the relay...\n");
+      digitalWrite(HEAT_RELAY_PIN, HIGH);
+    }
+    else if (rx_byte == '4')
+    {
+      Serial.print("\nTurning off the relay...\n");
+      digitalWrite(HEAT_RELAY_PIN, LOW);
+    }
+    else 
+    {
+      Serial.println("Command not recognized!");
+    }
+  }
 }
 
 
