@@ -1,0 +1,3 @@
+[submodule "arduino/lib/SD"]
+	path = arduino/lib/SD
+	url = https://github.com/arduino-libraries/SD
