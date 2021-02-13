@@ -35,7 +35,7 @@
 #define FAN_PWM 9
 
 // Pin controlling the relay in charge of the heating element.
-#define HEAT_RELAY_PIN 8
+#define HEAT_RELAY_PIN 11
 
 
 
@@ -214,11 +214,10 @@ void loop()
             // a character of the string was received
             rx_str_alt += rx_byte_alt;
             Serial.print(rx_byte_alt);
-            Serial.print("\n");
           }
           else 
           {
-            Serial.print("Setting pwm to ");
+            Serial.print("\nSetting pwm to ");
             Serial.println(rx_str_alt.toInt());
             Serial.println("\n");
             analogWrite(FAN_PWM, rx_str_alt.toInt());
