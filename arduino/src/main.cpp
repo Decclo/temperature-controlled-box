@@ -18,6 +18,8 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
+uint32_t tick_counter = 0;
+bool relay_state = false;
 
 
 // ##########################################
@@ -48,8 +50,8 @@ OneWire oneWire(10);  // on pin 10 (a 4.7K resistor is necessary)
 DallasTemperature sensors(&oneWire);
 
 // Addresses for the sensors
-DeviceAddress sensor1 = {0x28, 0x69, 0xA1, 0x69, 0x35, 0x19, 0x01, 0x5D};
-DeviceAddress sensor2 = {0x28, 0xD5, 0x55, 0x6B, 0x35, 0x19, 0x01, 0x99};
+DeviceAddress sensor0 = {0x28, 0x69, 0xA1, 0x69, 0x35, 0x19, 0x01, 0x5D};
+DeviceAddress sensor1 = {0x28, 0xD5, 0x55, 0x6B, 0x35, 0x19, 0x01, 0x99};
 
 
 // Function to read out onewire addresses 
@@ -92,23 +94,23 @@ void setup()
 
   // show the addresses we found on the bus
   Serial.print("Device 0 Address: ");
-  printAddress(sensor1);
+  printAddress(sensor0);
   Serial.println();
 
   Serial.print("Device 1 Address: ");
-  printAddress(sensor2);
+  printAddress(sensor1);
   Serial.println();
 
   // set the resolution to 9 bit per device
+  sensors.setResolution(sensor0, TEMPERATURE_PRECISION);
   sensors.setResolution(sensor1, TEMPERATURE_PRECISION);
-  sensors.setResolution(sensor2, TEMPERATURE_PRECISION);
 
   Serial.print("Device 0 Resolution: ");
-  Serial.print(sensors.getResolution(sensor1), DEC);
+  Serial.print(sensors.getResolution(sensor0), DEC);
   Serial.println();
 
   Serial.print("Device 1 Resolution: ");
-  Serial.print(sensors.getResolution(sensor2), DEC);
+  Serial.print(sensors.getResolution(sensor1), DEC);
   Serial.println();
   Serial.print("OneWire sensors initialized!\n\n");
 
@@ -119,6 +121,10 @@ void setup()
   // ==== Heat Relay Control ====
   // Initialize IO pin as output
   pinMode(HEAT_RELAY_PIN, OUTPUT);
+
+
+  analogWrite(FAN_PWM, 255);
+  Serial.print("Tick\tS0\tS1\tFan\tRelay\n");
 }
 
 
@@ -128,35 +134,7 @@ void setup()
 // ##########################################
 void loop()
 {
-  /* Example Code
-  // call sensors.requestTemperatures() to issue a global temperature
-  // request to all devices on the bus
-  Serial.print("Requesting temperatures...");
-  sensors.requestTemperatures();
-  Serial.println("DONE");
-
-  // print the device information
-  printData(sensor1);
-  printData(sensor2);
-  delay(1000);
-
-  int fan_pwm_value = 0;
-  for (int i = 100; i < 255; i++)
-  {
-    fan_pwm_value = i;
-    Serial.println(fan_pwm_value);
-    analogWrite(FAN_PWM, fan_pwm_value);
-  }
-  delay(5000);
-  for (int i = 255; i >= 100; i--)
-  {
-    fan_pwm_value = i;
-    Serial.println(fan_pwm_value);
-    analogWrite(FAN_PWM, fan_pwm_value);
-  }
-  delay(5000);
-  */
-
+/*
   Serial.print("\nCommands:\n");
   Serial.print("\t1 - Read temperature\n");
   Serial.print("\t2 - Set PWM\n");
@@ -183,8 +161,8 @@ void loop()
       while (read_temp)
       {
         sensors.requestTemperatures();
+        printData(sensor0);
         printData(sensor1);
-        printData(sensor2);
         Serial.print("\n");
 
         char rx_byte_alt = 0;
@@ -241,6 +219,27 @@ void loop()
       Serial.println("Command not recognized!");
     }
   }
+  */
+
+  sensors.requestTemperatures();
+  float tempC_S0 = sensors.getTempC(sensor0);
+  float tempC_S1 = sensors.getTempC(sensor1);
+
+  
+  if (((tempC_S0+tempC_S1)/2) <= 27.25)
+  {
+    digitalWrite(HEAT_RELAY_PIN, HIGH);
+    relay_state = true;
+  }
+  else if (((tempC_S0+tempC_S1)/2) >= 27.75)
+  {
+    digitalWrite(HEAT_RELAY_PIN, LOW);
+    relay_state = false;
+  }
+
+  tick_counter++;
+  Serial.print(String(tick_counter) + "\t" + String(tempC_S0) + "\t" + String(tempC_S1) + "\t" + String(255) + "\t" + String(relay_state) + "\n");
+
 }
 
 
