@@ -63,6 +63,9 @@ void printTemperature(DeviceAddress deviceAddress);
 // Function to print the address and temperature for a onewire device
 void printData(DeviceAddress deviceAddress);
 
+// Function that takes over the main loop and gives full control of the device.
+void debugMode();
+
 
 
 // ##########################################
@@ -122,6 +125,11 @@ void setup()
   // Initialize IO pin as output
   pinMode(HEAT_RELAY_PIN, OUTPUT);
 
+  Serial.print("For debugMode please press anykey.\n");
+  if (Serial.available() > 0)
+  {
+     debugMode();
+  }
 
   analogWrite(FAN_PWM, 255);
   Serial.print("Tick\tS0\tS1\tFan\tRelay\n");
@@ -134,92 +142,6 @@ void setup()
 // ##########################################
 void loop()
 {
-/*
-  Serial.print("\nCommands:\n");
-  Serial.print("\t1 - Read temperature\n");
-  Serial.print("\t2 - Set PWM\n");
-  Serial.print("\t3 - Change relay state to on\n");
-  Serial.print("\t4 - Change relay state to off\n");
-  Serial.print("Choice: ");
-  char rx_byte = 0;
-  while(Serial.available() == 0)
-  {
-    delay(100);
-  }
-
-  if (Serial.available() > 0) 
-  {    // is a character available?
-    rx_byte = Serial.read();       // get the character
-    Serial.print(rx_byte);
-    Serial.print("\n");
-
-    // check if a number was received
-    if (rx_byte == '1')
-    {
-      Serial.print("\nReading temperature sensors. Press anykey to return.\n");
-      bool read_temp = 1;
-      while (read_temp)
-      {
-        sensors.requestTemperatures();
-        printData(sensor0);
-        printData(sensor1);
-        Serial.print("\n");
-
-        char rx_byte_alt = 0;
-        if (Serial.available() > 0) 
-        {    // is a character available?
-          rx_byte_alt = Serial.read();       // get the character
-          read_temp = 0;
-        }
-      }
-    }
-    else if (rx_byte == '2')
-    {
-      char rx_byte_alt = 0;
-      String rx_str_alt = "";
-      bool read_str = 1;
-
-      Serial.print("\nPlease input PWM between 100 to 255: ");
-
-      while (read_str)
-      {
-        if (Serial.available() > 0) 
-        {    // is a character available?
-          rx_byte_alt = Serial.read();       // get the character
-          
-          if (rx_byte_alt != '\n') 
-          {
-            // a character of the string was received
-            rx_str_alt += rx_byte_alt;
-            Serial.print(rx_byte_alt);
-          }
-          else 
-          {
-            Serial.print("\nSetting pwm to ");
-            Serial.println(rx_str_alt.toInt());
-            Serial.println("\n");
-            analogWrite(FAN_PWM, rx_str_alt.toInt());
-            read_str = 0;
-          }
-        }
-      }
-    }
-    else if (rx_byte == '3')
-    {
-      Serial.print("\nTurning on the relay...\n");
-      digitalWrite(HEAT_RELAY_PIN, HIGH);
-    }
-    else if (rx_byte == '4')
-    {
-      Serial.print("\nTurning off the relay...\n");
-      digitalWrite(HEAT_RELAY_PIN, LOW);
-    }
-    else 
-    {
-      Serial.println("Command not recognized!");
-    }
-  }
-  */
 
   sensors.requestTemperatures();
   float tempC_S0 = sensors.getTempC(sensor0);
@@ -284,4 +206,111 @@ void printData(DeviceAddress deviceAddress)
   Serial.print(" ");
   printTemperature(deviceAddress);
   Serial.println();
+}
+
+
+// Function that takes over the main loop and gives full control of the device.
+void debugMode()
+{
+  int debugmode_enabled = true;
+  char rx_byte = 0;
+
+  if (Serial.available() > 0) 
+  {
+    rx_byte = Serial.read();
+  }
+
+  while (debugmode_enabled)
+  {
+    Serial.print("\nCommands:\n");
+    Serial.print("\t1 - Read temperature\n");
+    Serial.print("\t2 - Set PWM\n");
+    Serial.print("\t3 - Change relay state to on\n");
+    Serial.print("\t4 - Change relay state to off\n");
+    Serial.print("\t0 - Exit debugMode and return to normal operation\n");
+    Serial.print("Choice: ");
+    
+    while(Serial.available() == 0)
+    {
+      delay(100);
+    }
+
+    if (Serial.available() > 0) 
+    {    // is a character available?
+      rx_byte = Serial.read();       // get the character
+      Serial.print(rx_byte);
+      Serial.print("\n");
+
+      // check if a number was received
+      if (rx_byte == '1')
+      {
+        Serial.print("\nReading temperature sensors. Press anykey to return.\n");
+        bool read_temp = 1;
+        while (read_temp)
+        {
+          sensors.requestTemperatures();
+          printData(sensor0);
+          printData(sensor1);
+          Serial.print("\n");
+
+          char rx_byte_alt = 0;
+          if (Serial.available() > 0) 
+          {    // is a character available?
+            rx_byte_alt = Serial.read();       // get the character
+            read_temp = 0;
+          }
+        }
+      }
+      else if (rx_byte == '2')
+      {
+        char rx_byte_alt = 0;
+        String rx_str_alt = "";
+        bool read_str = 1;
+
+        Serial.print("\nPlease input PWM between 100 to 255: ");
+
+        while (read_str)
+        {
+          if (Serial.available() > 0) 
+          {    // is a character available?
+            rx_byte_alt = Serial.read();       // get the character
+            
+            if (rx_byte_alt != '\n') 
+            {
+              // a character of the string was received
+              rx_str_alt += rx_byte_alt;
+              Serial.print(rx_byte_alt);
+            }
+            else 
+            {
+              Serial.print("\nSetting pwm to ");
+              Serial.println(rx_str_alt.toInt());
+              Serial.println("\n");
+              analogWrite(FAN_PWM, rx_str_alt.toInt());
+              read_str = 0;
+            }
+          }
+        }
+      }
+      else if (rx_byte == '3')
+      {
+        Serial.print("\nTurning on the relay...\n");
+        digitalWrite(HEAT_RELAY_PIN, HIGH);
+      }
+      else if (rx_byte == '4')
+      {
+        Serial.print("\nTurning off the relay...\n");
+        digitalWrite(HEAT_RELAY_PIN, LOW);
+      }
+      else if (rx_byte == '0')
+      {
+        debugmode_enabled = false;
+      }
+      else 
+      {
+        Serial.println("Command not recognized!");
+      }
+    }
+  }
+
 }
