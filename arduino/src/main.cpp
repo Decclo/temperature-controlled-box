@@ -91,9 +91,15 @@ void setup()
   Serial.println(" devices.");
 
   // report parasite power requirements
-  Serial.print("Parasite power is: ");
-  if (sensors.isParasitePowerMode()) Serial.println("ON");
-  else Serial.println("OFF");
+  Serial.print("Parasitic power is: ");
+  if (sensors.isParasitePowerMode())
+  {
+    Serial.println("ON");
+  }
+  else 
+  {
+    Serial.println("OFF");
+  }
 
   // show the addresses we found on the bus
   Serial.print("Device 0 Address: ");
