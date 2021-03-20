@@ -2,5 +2,5 @@
 	path = arduino/lib/SD
 	url = https://github.com/arduino-libraries/SD
 [submodule "arduino/lib/ArduinoJson"]
-    path = arduino/lib/ArduinoJson
-    url = https://github.com/bblanchon/ArduinoJson
+	path = arduino/lib/ArduinoJson
+	url = https://github.com/bblanchon/ArduinoJson
