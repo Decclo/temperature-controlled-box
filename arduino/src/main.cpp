@@ -53,7 +53,7 @@ DallasTemperature sensors(&oneWire);
 // Addresses for the sensors
 DeviceAddress sensor0 = {0x28, 0x69, 0xA1, 0x69, 0x35, 0x19, 0x01, 0x5D};
 DeviceAddress sensor1 = {0x28, 0xD5, 0x55, 0x6B, 0x35, 0x19, 0x01, 0x99};
-
+DeviceAddress sensor2 = {0x28, 0x96, 0x5F, 0xE3, 0x22, 0x20, 0x01, 0x62};
 
 // Function to read out onewire addresses 
 void printAddress(DeviceAddress deviceAddress);
@@ -67,6 +67,9 @@ void printData(DeviceAddress deviceAddress);
 // Function that takes over the main loop and gives full control of the device.
 void debugMode();
 
+// Function which searches the OneWire bus and prints results
+uint8_t findDevices(int pin);
+
 
 
 // ##########################################
@@ -75,6 +78,8 @@ void debugMode();
 void setup()
 {
   // Initializations //
+
+  delay(5000);
 
   // ==== Serial ====
   Serial.begin(9600);
@@ -106,14 +111,22 @@ void setup()
   Serial.print("Device 0 Address: ");
   printAddress(sensor0);
   Serial.println();
+  Serial.print("Device 0 Description: Inside, low\n");
 
   Serial.print("Device 1 Address: ");
   printAddress(sensor1);
   Serial.println();
+  Serial.print("Device 1 Description: Inside, high\n");
+
+  Serial.print("Device 2 Address: ");
+  printAddress(sensor2);
+  Serial.println();
+  Serial.print("Device 1 Description: Outside, reference\n");
 
   // set the resolution to 9 bit per device
   sensors.setResolution(sensor0, TEMPERATURE_PRECISION);
   sensors.setResolution(sensor1, TEMPERATURE_PRECISION);
+  sensors.setResolution(sensor2, TEMPERATURE_PRECISION);
 
   Serial.print("Device 0 Resolution: ");
   Serial.print(sensors.getResolution(sensor0), DEC);
@@ -122,7 +135,12 @@ void setup()
   Serial.print("Device 1 Resolution: ");
   Serial.print(sensors.getResolution(sensor1), DEC);
   Serial.println();
-  Serial.print("OneWire sensors initialized!\n\n");
+
+  Serial.print("Device 2 Resolution: ");
+  Serial.print(sensors.getResolution(sensor2), DEC);
+  Serial.println();
+  Serial.println("OneWire sensors initialized!");
+  Serial.println();
 
   // ==== Fan Control ====
   // Initialize PWM pin as PWM output
@@ -132,11 +150,9 @@ void setup()
   // Initialize IO pin as output
   pinMode(HEAT_RELAY_PIN, OUTPUT);
 
-  Serial.print("For debugMode please press anykey.\n");
-  if (Serial.available() > 0)
-  {
-     debugMode();
-  }
+  Serial.println("For debugMode please press anykey.");
+  Serial.println();
+  delay(1000);
 
   analogWrite(FAN_PWM, 255);
 }
@@ -148,10 +164,15 @@ void setup()
 // ##########################################
 void loop()
 {
+  if (Serial.available() > 0)
+  {
+     debugMode();
+  }
 
   sensors.requestTemperatures();
   float tempC_S0 = sensors.getTempC(sensor0);
   float tempC_S1 = sensors.getTempC(sensor1);
+  float tempC_S2 = sensors.getTempC(sensor2);
   float tempC_mean = ((tempC_S0+tempC_S1)/2);
   
   if (tempC_mean <= 27.25)
@@ -159,19 +180,20 @@ void loop()
     digitalWrite(HEAT_RELAY_PIN, HIGH);
     relay_state = true;
   }
-  else if (tempC_mean >= 27.75)
+  else if (tempC_mean >= 27.50)
   {
     digitalWrite(HEAT_RELAY_PIN, LOW);
     relay_state = false;
   }
 
   // Debugging and logging - Create a JSON document and send it over Serial
-  StaticJsonDocument<64> doc;
+  StaticJsonDocument<96> doc;
 
   doc["tick"] = tick_counter;
   JsonObject sensors_0 = doc["sensors"].createNestedObject();
   sensors_0["sensor00"] = tempC_S0;
   sensors_0["sensor01"] = tempC_S1;
+  sensors_0["sensor02"] = tempC_S2;
   doc["sensorMean"] = tempC_mean;
   doc["fan"] = 255;
   doc["heatingElement"] = relay_state;
@@ -240,13 +262,14 @@ void debugMode()
 
   while (debugmode_enabled)
   {
-    Serial.print("\nCommands:\n");
-    Serial.print("\t1 - Read temperature\n");
-    Serial.print("\t2 - Set PWM\n");
-    Serial.print("\t3 - Change relay state to on\n");
-    Serial.print("\t4 - Change relay state to off\n");
-    Serial.print("\t0 - Exit debugMode and return to normal operation\n");
-    Serial.print("Choice: ");
+    Serial.println("\nCommands:\n");
+    Serial.println("\t1 - Read temperature\n");
+    Serial.println("\t2 - Set PWM\n");
+    Serial.println("\t3 - Change relay state to on\n");
+    Serial.println("\t4 - Change relay state to off\n");
+    Serial.println("\t5 - Scan for OneWire sensors\n");
+    Serial.println("\t0 - Exit debugMode and return to normal operation\n");
+    Serial.println("Choice: ");
     
     while(Serial.available() == 0)
     {
@@ -262,14 +285,15 @@ void debugMode()
       // check if a number was received
       if (rx_byte == '1')
       {
-        Serial.print("\nReading temperature sensors. Press anykey to return.\n");
+        Serial.println("\nReading temperature sensors. Press anykey to return.");
         bool read_temp = 1;
         while (read_temp)
         {
           sensors.requestTemperatures();
           printData(sensor0);
           printData(sensor1);
-          Serial.print("\n");
+          printData(sensor2);
+          Serial.println();
 
           char rx_byte_alt = 0;
           if (Serial.available() > 0) 
@@ -303,7 +327,8 @@ void debugMode()
             {
               Serial.print("\nSetting pwm to ");
               Serial.println(rx_str_alt.toInt());
-              Serial.println("\n");
+              Serial.println();
+              Serial.println();
               analogWrite(FAN_PWM, rx_str_alt.toInt());
               read_str = 0;
             }
@@ -312,13 +337,19 @@ void debugMode()
       }
       else if (rx_byte == '3')
       {
-        Serial.print("\nTurning on the relay...\n");
+        Serial.println("\nTurning on the relay...");
         digitalWrite(HEAT_RELAY_PIN, HIGH);
       }
       else if (rx_byte == '4')
       {
-        Serial.print("\nTurning off the relay...\n");
+        Serial.println("\nTurning off the relay...");
         digitalWrite(HEAT_RELAY_PIN, LOW);
+      }
+      else if (rx_byte == '5')
+      {
+        findDevices(ONE_WIRE_BUS);
+        Serial.println("\n//\n// End oneWireSearch.ino //");
+        Serial.println();
       }
       else if (rx_byte == '0')
       {
@@ -331,4 +362,40 @@ void debugMode()
     }
   }
 
+}
+
+
+// Function which searches the OneWire bus and prints results
+uint8_t findDevices(int pin)
+{
+  OneWire ow(pin);
+
+  uint8_t address[8];
+  uint8_t count = 0;
+
+
+  if (ow.search(address))
+  {
+    Serial.print("\nuint8_t pin");
+    Serial.print(pin, DEC);
+    Serial.println("[][8] = {");
+    do {
+      count++;
+      Serial.println("  {");
+      for (uint8_t i = 0; i < 8; i++)
+      {
+        Serial.print("0x");
+        if (address[i] < 0x10) Serial.print("0");
+        Serial.print(address[i], HEX);
+        if (i < 7) Serial.print(", ");
+      }
+      Serial.println("  },");
+    } while (ow.search(address));
+
+    Serial.println("};");
+    Serial.print("// nr devices found: ");
+    Serial.println(count);
+  }
+
+  return count;
 }
