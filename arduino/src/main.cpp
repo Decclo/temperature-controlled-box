@@ -17,6 +17,7 @@
 #include <Arduino.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include "ArduinoJson.h"
 
 uint32_t tick_counter = 0;
 bool relay_state = false;
@@ -138,7 +139,6 @@ void setup()
   }
 
   analogWrite(FAN_PWM, 255);
-  Serial.print("Tick\tS0\tS1\tFan\tRelay\n");
 }
 
 
@@ -152,22 +152,34 @@ void loop()
   sensors.requestTemperatures();
   float tempC_S0 = sensors.getTempC(sensor0);
   float tempC_S1 = sensors.getTempC(sensor1);
-
+  float tempC_mean = ((tempC_S0+tempC_S1)/2);
   
-  if (((tempC_S0+tempC_S1)/2) <= 27.25)
+  if (tempC_mean <= 27.25)
   {
     digitalWrite(HEAT_RELAY_PIN, HIGH);
     relay_state = true;
   }
-  else if (((tempC_S0+tempC_S1)/2) >= 27.75)
+  else if (tempC_mean >= 27.75)
   {
     digitalWrite(HEAT_RELAY_PIN, LOW);
     relay_state = false;
   }
 
-  tick_counter++;
-  Serial.print(String(tick_counter) + "\t" + String(tempC_S0) + "\t" + String(tempC_S1) + "\t" + String(255) + "\t" + String(relay_state) + "\n");
+  // Debugging and logging - Create a JSON document and send it over Serial
+  StaticJsonDocument<64> doc;
 
+  doc["tick"] = tick_counter;
+  JsonObject sensors_0 = doc["sensors"].createNestedObject();
+  sensors_0["sensor00"] = tempC_S0;
+  sensors_0["sensor01"] = tempC_S1;
+  doc["sensorMean"] = tempC_mean;
+  doc["fan"] = 255;
+  doc["heatingElement"] = relay_state;
+
+  serializeJson(doc, Serial);
+  Serial.println();
+
+  tick_counter++;
 }
 
 
