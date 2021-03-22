@@ -1,0 +1,9 @@
+# Python script dependencies and build files
+**/__pycache__
+
+# Windows files
+desktop.ini
+
+# VSCode and platformio config files
+**/.pio
+**/.vscode
