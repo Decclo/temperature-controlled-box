@@ -39,12 +39,12 @@
 #define HEAT_RELAY_PIN 11
 
 // PID values
-#define PID_KP 1;
-#define PID_KI 0.2;
-#define PID_KD 0.9;
+#define PID_KP 10;
+#define PID_KI 0.5;
+#define PID_KD 0.1;
 
 // PID analogue to digital period time (ms)
-#define PID_PERIOD 5000;
+#define PID_PERIOD 30000;
 
 
 // ##########################################
@@ -86,8 +86,9 @@ uint8_t findDevices(int pin);
 /*
  * This section contains the global variables. It would be a good idea to change these global variables to local ones in the future, but they're here now.
 */
-uint32_t tick_counter = 0;
 bool relay_state = false;
+unsigned long LastLog = 0;
+int fanDutyCycle = 0;
 
 //PID constants
 unsigned long currentTime, previousTime;
@@ -186,22 +187,13 @@ void setup()
   Serial.println();
   delay(1000);
 
-  analogWrite(FAN_PWM, 220);
+  fanDutyCycle = 220;
+  analogWrite(FAN_PWM, fanDutyCycle);
 
   // ==== PID Controller ====
   // Set initial setpoint to 0
   setPoint = 27; 
 
-  // Perform first PID computation and define output for first period
-  sensors.requestTemperatures();
-  float tempC_S0 = sensors.getTempC(sensor0);
-  float tempC_S1 = sensors.getTempC(sensor1);
-  float tempC_mean = ((tempC_S0+tempC_S1)/2);
-
-  //dutyCycle = computePID(tempC_mean);
-  //digitalWrite(HEAT_RELAY_PIN, HIGH);
-  relay_state = true;
-  LastPeriod = millis();
 }
 
 
@@ -216,26 +208,21 @@ void loop()
      debugMode();
   }
 
-  // Turn off the relay once we reach the end of the active state of the duty cycle
-  if (((millis() - LastPeriod) >= dutyCycle) && relay_state == true)
-  {
-    //digitalWrite(HEAT_RELAY_PIN, LOW);
-    relay_state = false;
-  }
+  float tempC_S0 = sensors.getTempC(sensor0);
+  float tempC_S1 = sensors.getTempC(sensor1);
+  float tempC_S2 = sensors.getTempC(sensor2);
+  float tempC_mean = ((tempC_S0+tempC_S1)/2);
   
   // Recompute the PID dutycycle once the period has complete
   if ((millis() - LastPeriod) >= period)
   {
     sensors.requestTemperatures();
-    float tempC_S0 = sensors.getTempC(sensor0);
-    float tempC_S1 = sensors.getTempC(sensor1);
-    float tempC_S2 = sensors.getTempC(sensor2);
-    float tempC_mean = ((tempC_S0+tempC_S1)/2);
+    tempC_S0 = sensors.getTempC(sensor0);
+    tempC_S1 = sensors.getTempC(sensor1);
+    tempC_S2 = sensors.getTempC(sensor2);
+    tempC_mean = ((tempC_S0+tempC_S1)/2);
 
-
-    int PID_output = computePID(tempC_mean);
-    dutyCycle = (period/100) * PID_output;
-    //digitalWrite(HEAT_RELAY_PIN, HIGH);
+    dutyCycle = computePID(tempC_mean);
     relay_state = true;
     LastPeriod = millis();
 
@@ -244,26 +231,42 @@ void loop()
     Serial.println();
   }
 
+  // Turn off the relay once we reach the end of the active state of the duty cycle
+  if ((millis() - LastPeriod) >= ((period/100) * dutyCycle) && (relay_state == true))
+  {
+    relay_state = false;
+  }
+
+  // Change the state of the heat relay
+  if (relay_state == true)
+  {
+    digitalWrite(HEAT_RELAY_PIN, HIGH);
+  }
+  else
+  {
+    digitalWrite(HEAT_RELAY_PIN, LOW);
+  }
   
 
-/*
   // Debugging and logging - Create a JSON document and send it over Serial
-  StaticJsonDocument<96> doc;
+  if ((millis() - LastLog)> 200)
+  {
+    StaticJsonDocument<96> doc;
 
-  doc["tick"] = tick_counter;
-  JsonObject sensors_0 = doc["sensors"].createNestedObject();
-  sensors_0["sensor00"] = tempC_S0;
-  sensors_0["sensor01"] = tempC_S1;
-  sensors_0["sensor02"] = tempC_S2;
-  doc["sensorMean"] = tempC_mean;
-  doc["fan"] = 255;
-  doc["heatingElement"] = relay_state;
+    doc["ms"] = millis();
+    JsonObject sensors_0 = doc["sensors"].createNestedObject();
+    sensors_0["sensor00"] = tempC_S0;
+    sensors_0["sensor01"] = tempC_S1;
+    sensors_0["sensor02"] = tempC_S2;
+    doc["sensorMean"] = tempC_mean;
+    doc["setpoint"] = setPoint;
+    doc["dutycycle"] = dutyCycle;
+    doc["fan"] = fanDutyCycle;
+    doc["heatingElement"] = relay_state;
 
-  serializeJson(doc, Serial);
-  Serial.println();
-  */
-
-  tick_counter++;
+    serializeJson(doc, Serial);
+    Serial.println();
+  }
 }
 
 
@@ -295,20 +298,20 @@ double computePID(double input){
   {
     output = 1000;
   }
-  else if (output < -1000)
+  else if (output < 0)
   {
-    output = -1000;
+    output = 0;
   }
 
   // Normailize the output to be in promille
-  output = map(output, -1000, 1000, 0, 100);
+  output = map(output, 0, 1000, 0, 100);
   
-  Serial.print("error: ");
-  Serial.println(error);
-  Serial.print("cumError: ");
-  Serial.println(cumError);
-  Serial.print("rateError: ");
-  Serial.println(rateError);
+  Serial.print("kp*error: ");
+  Serial.println(kp*error);
+  Serial.print("ki*cumError: ");
+  Serial.println(ki*cumError);
+  Serial.print("kd*rateError: ");
+  Serial.println(kd*rateError);
   Serial.print("output: ");
   Serial.println(output);
 
