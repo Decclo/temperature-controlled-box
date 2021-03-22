@@ -19,8 +19,6 @@
 #include <DallasTemperature.h>
 #include "ArduinoJson.h"
 
-uint32_t tick_counter = 0;
-bool relay_state = false;
 
 
 // ##########################################
@@ -40,6 +38,13 @@ bool relay_state = false;
 // Pin controlling the relay in charge of the heating element.
 #define HEAT_RELAY_PIN 11
 
+// PID values
+#define PID_KP 1;
+#define PID_KI 0.2;
+#define PID_KD 0.9;
+
+// PID analogue to digital period time (ms)
+#define PID_PERIOD 5000;
 
 
 // ##########################################
@@ -55,6 +60,12 @@ DeviceAddress sensor0 = {0x28, 0x69, 0xA1, 0x69, 0x35, 0x19, 0x01, 0x5D};
 DeviceAddress sensor1 = {0x28, 0xD5, 0x55, 0x6B, 0x35, 0x19, 0x01, 0x99};
 DeviceAddress sensor2 = {0x28, 0x96, 0x5F, 0xE3, 0x22, 0x20, 0x01, 0x62};
 
+// Function to update the PID controller
+double computePID(double input);
+
+// Function that takes over the main loop and gives full control of the device.
+void debugMode();
+
 // Function to read out onewire addresses 
 void printAddress(DeviceAddress deviceAddress);
 
@@ -64,11 +75,32 @@ void printTemperature(DeviceAddress deviceAddress);
 // Function to print the address and temperature for a onewire device
 void printData(DeviceAddress deviceAddress);
 
-// Function that takes over the main loop and gives full control of the device.
-void debugMode();
-
 // Function which searches the OneWire bus and prints results
 uint8_t findDevices(int pin);
+
+
+
+// ##########################################
+// ##           Global Variables           ##
+// ##########################################
+/*
+ * This section contains the global variables. It would be a good idea to change these global variables to local ones in the future, but they're here now.
+*/
+uint32_t tick_counter = 0;
+bool relay_state = false;
+
+//PID constants
+unsigned long currentTime, previousTime;
+double elapsedTime;
+double error;
+double lastError;
+double input, output, setPoint;
+double cumError, rateError;
+
+// PID analogue to digital output
+unsigned long LastPeriod = 0;
+const int period = PID_PERIOD;
+int dutyCycle = 0;
 
 
 
@@ -154,7 +186,22 @@ void setup()
   Serial.println();
   delay(1000);
 
-  analogWrite(FAN_PWM, 255);
+  analogWrite(FAN_PWM, 220);
+
+  // ==== PID Controller ====
+  // Set initial setpoint to 0
+  setPoint = 27; 
+
+  // Perform first PID computation and define output for first period
+  sensors.requestTemperatures();
+  float tempC_S0 = sensors.getTempC(sensor0);
+  float tempC_S1 = sensors.getTempC(sensor1);
+  float tempC_mean = ((tempC_S0+tempC_S1)/2);
+
+  //dutyCycle = computePID(tempC_mean);
+  //digitalWrite(HEAT_RELAY_PIN, HIGH);
+  relay_state = true;
+  LastPeriod = millis();
 }
 
 
@@ -169,23 +216,37 @@ void loop()
      debugMode();
   }
 
-  sensors.requestTemperatures();
-  float tempC_S0 = sensors.getTempC(sensor0);
-  float tempC_S1 = sensors.getTempC(sensor1);
-  float tempC_S2 = sensors.getTempC(sensor2);
-  float tempC_mean = ((tempC_S0+tempC_S1)/2);
-  
-  if (tempC_mean <= 27.25)
+  // Turn off the relay once we reach the end of the active state of the duty cycle
+  if (((millis() - LastPeriod) >= dutyCycle) && relay_state == true)
   {
-    digitalWrite(HEAT_RELAY_PIN, HIGH);
-    relay_state = true;
-  }
-  else if (tempC_mean >= 27.50)
-  {
-    digitalWrite(HEAT_RELAY_PIN, LOW);
+    //digitalWrite(HEAT_RELAY_PIN, LOW);
     relay_state = false;
   }
+  
+  // Recompute the PID dutycycle once the period has complete
+  if ((millis() - LastPeriod) >= period)
+  {
+    sensors.requestTemperatures();
+    float tempC_S0 = sensors.getTempC(sensor0);
+    float tempC_S1 = sensors.getTempC(sensor1);
+    float tempC_S2 = sensors.getTempC(sensor2);
+    float tempC_mean = ((tempC_S0+tempC_S1)/2);
 
+
+    int PID_output = computePID(tempC_mean);
+    dutyCycle = (period/100) * PID_output;
+    //digitalWrite(HEAT_RELAY_PIN, HIGH);
+    relay_state = true;
+    LastPeriod = millis();
+
+    Serial.print("Current duty cycle: ");
+    Serial.println(dutyCycle);
+    Serial.println();
+  }
+
+  
+
+/*
   // Debugging and logging - Create a JSON document and send it over Serial
   StaticJsonDocument<96> doc;
 
@@ -200,6 +261,7 @@ void loop()
 
   serializeJson(doc, Serial);
   Serial.println();
+  */
 
   tick_counter++;
 }
@@ -210,42 +272,47 @@ void loop()
 // ##               Functions              ##
 // ##########################################
 
-// function to print a device address
-void printAddress(DeviceAddress deviceAddress)
-{
-  for (uint8_t i = 0; i < 8; i++)
+// Function to update the PID controller
+double computePID(double input){
+  double kp = PID_KP;
+  double ki = PID_KI;
+  double kd = PID_KD;    
+
+  currentTime = millis();                                 //get current time
+  elapsedTime = (double)(currentTime - previousTime);     //compute time elapsed from previous computation
+
+  error = setPoint - input;                               // determine error
+  cumError += error * (elapsedTime / 1000);                        // compute integral
+  rateError = (error - lastError)/(elapsedTime / 1000);            // compute derivative
+
+  lastError = error;                                      //remember current error
+  previousTime = currentTime;                             //remember current time
+
+  double output = kp*error + ki*cumError + kd*rateError;
+
+  // Make sure that the output does not exceed some extreme values
+  if (output > 1000)
   {
-    if (deviceAddress[i] < 16) Serial.print("0");
-    Serial.print(deviceAddress[i], HEX);
-    Serial.print(" ");
+    output = 1000;
   }
-}
-
-
-// function to print the temperature for a device
-void printTemperature(DeviceAddress deviceAddress)
-{
-  float tempC = sensors.getTempC(deviceAddress);
-  if(tempC == DEVICE_DISCONNECTED_C) 
+  else if (output < -1000)
   {
-    Serial.println("Error: Could not read temperature data");
-    return;
+    output = -1000;
   }
-  Serial.print("Temp C: ");
-  Serial.print(tempC);
-  Serial.print(" Temp F: ");
-  Serial.print(DallasTemperature::toFahrenheit(tempC));
-}
 
+  // Normailize the output to be in promille
+  output = map(output, -1000, 1000, 0, 100);
+  
+  Serial.print("error: ");
+  Serial.println(error);
+  Serial.print("cumError: ");
+  Serial.println(cumError);
+  Serial.print("rateError: ");
+  Serial.println(rateError);
+  Serial.print("output: ");
+  Serial.println(output);
 
-// main function to print information about a device
-void printData(DeviceAddress deviceAddress)
-{
-  Serial.print("Device Address: ");
-  printAddress(deviceAddress);
-  Serial.print(" ");
-  printTemperature(deviceAddress);
-  Serial.println();
+  return output;
 }
 
 
@@ -362,6 +429,44 @@ void debugMode()
     }
   }
 
+}
+
+// function to print a device address
+void printAddress(DeviceAddress deviceAddress)
+{
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    if (deviceAddress[i] < 16) Serial.print("0");
+    Serial.print(deviceAddress[i], HEX);
+    Serial.print(" ");
+  }
+}
+
+
+// function to print the temperature for a device
+void printTemperature(DeviceAddress deviceAddress)
+{
+  float tempC = sensors.getTempC(deviceAddress);
+  if(tempC == DEVICE_DISCONNECTED_C) 
+  {
+    Serial.println("Error: Could not read temperature data");
+    return;
+  }
+  Serial.print("Temp C: ");
+  Serial.print(tempC);
+  Serial.print(" Temp F: ");
+  Serial.print(DallasTemperature::toFahrenheit(tempC));
+}
+
+
+// main function to print information about a device
+void printData(DeviceAddress deviceAddress)
+{
+  Serial.print("Device Address: ");
+  printAddress(deviceAddress);
+  Serial.print(" ");
+  printTemperature(deviceAddress);
+  Serial.println();
 }
 
 
