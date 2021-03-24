@@ -19,15 +19,15 @@ The box really depends on your tastes and needs.
 ![signal-2021-03-24-194901_002](https://user-images.githubusercontent.com/25606661/112367431-30895d80-8cda-11eb-955a-b8b967ac7dbb.jpeg)
 ![signal-2021-03-24-194901_003](https://user-images.githubusercontent.com/25606661/112367433-3121f400-8cda-11eb-8844-0a34f85c6d95.jpeg)
 
-The power supply is connected in the following way:
-Power supply (12v output)
-|-> L298N motor driver's power in
-| |-> Fan (motor A out)
-| |-> Relay (5v relugated output)
-| |-> DS18B20 temperature sensors (5v relugated output)
-|-> Arduino Nano's VIN
-|-> Relay (switch)
-| |-> Heating unit
+The power supply is connected in the following way:  
+Power supply (12v output)  
+|-> L298N motor driver's power in  
+| |-> Fan (motor A out)  
+| |-> Relay (5v relugated output)  
+| |-> DS18B20 temperature sensors (5v relugated output)  
+|-> Arduino Nano's VIN  
+|-> Relay (switch)  
+| |-> Heating unit  
 
 While the positive rail can be wired as stated above, there are no limits for the ground rail. Preferable every component would connect to every other components ground, but since this would be cumbersome, the components which give signals to other components have an additional ground wire along the signal wire. This results in a mesh-like ground rail.
 
@@ -37,10 +37,10 @@ It should also be noted that the 12v input connected to the Arduino Nano's VIN i
 
 ![signal-2021-03-24-194901_001](https://user-images.githubusercontent.com/25606661/112367429-2ff0c700-8cda-11eb-82a0-a78cce96e969.jpeg)
 
-The devices are connected to the Arduino Nano as follows:
-  Pin 10: Onewire (additionally has 4.7kOhm pullup resistor to arduino's 5v rail)
-  Pin 09: Motor driver PWM for fan
-  Pin 11: Digital output for relay controlling heating element
+The devices are connected to the Arduino Nano as follows:  
+  Pin 10: Onewire (additionally has 4.7kOhm pullup resistor to arduino's 5v rail)  
+  Pin 09: Motor driver PWM for fan  
+  Pin 11: Digital output for relay controlling heating element  
   
   ### Repository Setup
   1. Download [Microsoft Visual Studio Code](https://code.visualstudio.com/) (and no, Visual Studio Codium does sadly nt work because of PlatformIO dependencies)
