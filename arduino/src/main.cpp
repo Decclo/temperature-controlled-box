@@ -26,13 +26,20 @@
 // ##########################################
 /*
  * This section defines the settings for the program, such as pin numbers and operation modi.
+ * For tuning the device, one would change DESIRED_TEMPERATURE and TEMPERATURE_DEVIATION.
+ * As the heating element is rather quick to heat up, but needs a lot of time to cool down, 
+ * the TEMPERATURE_OFFSET should be set to the difference between the wanted value and average measured value.
+ * If the measured value is lower than the wanted, then TEMPERATURE_OFFSET needs to be negative.
 */
 
-// Desired temperature in degrees celcius
-const double DESIRED_TEMPERATURE = 27.5;
+// Desired temperature in degrees celsius.
+const double DESIRED_TEMPERATURE = 27;
 
 // How much deviation (+-DESIRED_TEMPERATURE) is allowed before correcting.
 const double TEMPERATURE_DEVIATION = 0.2;
+
+// Offset from the desired temperature and average measured temperature, found by using the Graph_Plotter.py
+const double TEMPERATURE_OFFSET = 0.7;
 
 // Pin for onewire interface. The sensors are installed in series running without parasitic power.
 #define ONE_WIRE_BUS 10
@@ -83,6 +90,7 @@ uint8_t findDevices(int pin);
 */
 
 bool relay_state = false;   // Bool which saves the current state of the relay, mostly for logging purposes.
+const double temperature_setpoint = DESIRED_TEMPERATURE - TEMPERATURE_OFFSET;
 
 
 // ##########################################
@@ -197,12 +205,12 @@ void loop()
   // This is the actual control algorithm. 
   // For now it simply turns the heating element on when the temperature falls below a deviation defined by the user, 
   // and turns it off again once it surpasses this same deviation
-  if (tempC_mean <= (DESIRED_TEMPERATURE - TEMPERATURE_DEVIATION))
+  if (tempC_mean <= (temperature_setpoint - TEMPERATURE_DEVIATION))
   {
     digitalWrite(HEAT_RELAY_PIN, HIGH);
     relay_state = true;
   }
-  else if (tempC_mean >= (DESIRED_TEMPERATURE + TEMPERATURE_DEVIATION))
+  else if (tempC_mean >= (temperature_setpoint + TEMPERATURE_DEVIATION))
   {
     digitalWrite(HEAT_RELAY_PIN, LOW);
     relay_state = false;
