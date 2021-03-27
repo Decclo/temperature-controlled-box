@@ -6,7 +6,7 @@
  * Author:        Hans Rasmussen
  * E-Mail:        angdeclo@gmail.com
  * Creation Date: 09/10/2020
- * Last Modified: 25/03/2021
+ * Last Modified: 27/03/2021
  */
 
 
@@ -29,7 +29,7 @@
  * For tuning the device, one would change DESIRED_TEMPERATURE and TEMPERATURE_DEVIATION.
  * As the heating element is rather quick to heat up, but needs a lot of time to cool down, 
  * the TEMPERATURE_OFFSET should be set to the difference between the wanted value and average measured value.
- * If the measured value is lower than the wanted, then TEMPERATURE_OFFSET needs to be negative.
+ * If the measured value is lower than the wanted, then TEMPERATURE_OFFSET needs to be positive.
 */
 
 // Desired temperature in degrees celsius.
@@ -39,10 +39,16 @@ const double DESIRED_TEMPERATURE = 27;
 const double TEMPERATURE_DEVIATION = 0.2;
 
 // Offset from the desired temperature and average measured temperature, found by using the Graph_Plotter.py
-const double TEMPERATURE_OFFSET = 0.7;
+const double TEMPERATURE_OFFSET = -0.4;
 
 // Pin for onewire interface. The sensors are installed in series running without parasitic power.
 #define ONE_WIRE_BUS 10
+
+// Precision of the temperature sensor
+// 09 equals a precision of 0.5C and measurement time <93.75ms
+// 10 equals a precision of 0.25C and measurement time <187.5ms
+// 11 equals a precision of 0.125C and measurement time <375ms
+// 12 equals a precision of 0.0625C and measurement time <750ms
 #define TEMPERATURE_PRECISION 12
 
 // Pin on which to run the PWM for the motor controller in charge of the fan. The H-bridge is hard-wired.
@@ -90,7 +96,8 @@ uint8_t findDevices(int pin);
 */
 
 bool relay_state = false;   // Bool which saves the current state of the relay, mostly for logging purposes.
-const double temperature_setpoint = DESIRED_TEMPERATURE - TEMPERATURE_OFFSET;
+uint8_t fan_value = 220;    // Value to be used when changin the fan speed, as it makes sure the correct value is logged later.
+const double temperature_setpoint = DESIRED_TEMPERATURE + TEMPERATURE_OFFSET;
 
 
 // ##########################################
@@ -145,7 +152,7 @@ void setup()
   Serial.println();
   Serial.print("Device 1 Description: Outside, reference\n");
 
-  // set the resolution to 9 bit per device, this results in a 93.75ms reading time per sensor
+  // set the resolution to 12 bit per device, this results in <750ms reading time per sensor with resolution 0.0625C
   sensors.setResolution(sensor0, TEMPERATURE_PRECISION);
   sensors.setResolution(sensor1, TEMPERATURE_PRECISION);
   sensors.setResolution(sensor2, TEMPERATURE_PRECISION);
@@ -177,11 +184,10 @@ void setup()
   Serial.println();
   delay(1000);
 
-  // Turn on the fan. For now we'll jsut keep it constant.
-  analogWrite(FAN_PWM, 220);
+  // Turn on the fan. For now we'll just keep it constant.
+  analogWrite(FAN_PWM, fan_value);
 
 }
-
 
 
 // ##########################################
@@ -242,7 +248,7 @@ void loop()
   sensors_0["sensor01"] = tempC_S1;
   sensors_0["sensor02"] = tempC_S2;
   doc["sensorMean"] = tempC_mean;
-  doc["fan"] = 255;
+  doc["fan"] = fan_value;
   doc["heatingElement"] = relay_state;
 
   serializeJson(doc, Serial);
