@@ -27,10 +27,10 @@ import json
 parser = argparse.ArgumentParser(description='Reads a logfile for the Temperated Box and creates relevant graphs.')
 parser.add_argument('filepath', metavar='PATH', type=str,
                     help='Path to file to be read')
-parser.add_argument('--extract', type=str,
+parser.add_argument('-o', '--output', type=str,
                     default="",
                     help='Save the extracted JSON to a file')
-parser.add_argument('--maverage', type=int,
+parser.add_argument('-ma', '--moving-average', type=int, dest='moving_average',
                     default=None,
                     help='Add a moving average of sensorMean to sensor plot')
 
@@ -57,15 +57,16 @@ content = [val for val in content
 
 
 # If the --extract option was specified, save the extracted JSON to the specified file
+print(Fore.BLUE + '[INFO] ' + Style.RESET_ALL + 'Writing output to ' + args.output)
 try:
-    if(args.extract != ""):
-        f = open(args.extract, "w")
+    if(args.output != ""):
+        f = open(args.output, "w")
         for line in content:
             f.write(line)
             f.write("\n")
         f.close()
 except:
-    print("Cannot read JSON export filename")    
+    print(Fore.YELLOW + '[WARNING] ' + Style.RESET_ALL + 'Cannot save extracted JSON to specified location')    
 
 
 # Iterate through the json data and pick out the values we want
@@ -81,9 +82,9 @@ for line in content:
     data_raw[6].append(data['heatingElement'])
 
 
-if (args.maverage != None):
+if (args.moving_average != None):
     # Finding the average of the last x values of sensorMean
-    window_size = args.maverage
+    window_size = args.moving_average
     moving_average = []
     for i in range(window_size - 1):
         moving_average.append(None)
@@ -105,12 +106,13 @@ print(Fore.BLUE + '[INFO] ' + Style.RESET_ALL + 'The average of sensorMean is: '
 a1 = plt.subplot2grid((3,2),(0,0),rowspan = 2, colspan = 2)
 a2 = plt.subplot2grid((3,2),(2,0),colspan = 2)
 
+
 # Upper plot for sensors
 a1.plot(data_raw[0], data_raw[1], label='sensor00 (lower)')
 a1.plot(data_raw[0], data_raw[2], label='sensor01 (upper)')
 a1.plot(data_raw[0], data_raw[3], label='sensor02 (outside)')
 a1.plot(data_raw[0], data_raw[4], label='sensorMean')
-if (args.maverage != None):     # Only draw the moving average if maverage is defined
+if (args.moving_average != None):     # Only draw the moving average if moving_average is defined
     try:        # Try to draw the moving average, if this gives and error, then it is most likely caused by too large window
         a1.plot(data_raw[0], moving_average, label=('moving average, resolution: ' + str(window_size)))
     except:
@@ -121,6 +123,7 @@ a1.set_ylabel("Temperature [C]")
 a1.grid()
 a1.legend()
 
+
 # Lower plot for actuators
 a2.plot(data_raw[0], data_raw[5], label='Fan')
 a2.plot(data_raw[0], data_raw[6], label='Heating element')
@@ -129,6 +132,7 @@ a2.set_xlabel("Seconds since start")
 a2.set_ylabel("Value")
 a2.grid()
 a2.legend()
+
 
 # Visualize the plot
 plt.tight_layout()
