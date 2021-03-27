@@ -26,7 +26,7 @@ import json
 # Introducing argparse to more easily select the correct logfile.
 parser = argparse.ArgumentParser(description='Reads a logfile for the Temperated Box and creates relevant graphs.')
 parser.add_argument('filepath', metavar='PATH', type=str,
-                    help='Path to file to be read')
+                    help='Path to input file')
 parser.add_argument('-o', '--output', type=str,
                     default="",
                     help='Save the extracted JSON to a file')
@@ -51,7 +51,7 @@ with open(args.filepath) as f:
     content = f.read().splitlines()
 
 
-# Filter content so we only get the actual values
+# Filter content so we only get the JSON data
 content = [val for val in content
         if re.search(r'^\{.*\}$', val)]
 
