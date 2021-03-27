@@ -30,6 +30,9 @@ parser.add_argument('filepath', metavar='PATH', type=str,
 parser.add_argument('--extract', type=str,
                     default="",
                     help='Save the extracted JSON to a file')
+parser.add_argument('--maverage', type=int,
+                    default=None,
+                    help='Add a moving average of sensorMean to sensor plot')
 
 args = parser.parse_args()
 
@@ -77,17 +80,25 @@ for line in content:
     data_raw[5].append(data['fan'] / 255)
     data_raw[6].append(data['heatingElement'])
 
-# Finding the average of the last x values of sensorMean
-window_size = 1000
-moving_average = []
-for i in range(window_size - 1):
-    moving_average.append(0)
 
-for each in window(data_raw[4], window_size):
-    moving_average.append(sum(each)/len(each))
+if (args.maverage != None):
+    # Finding the average of the last x values of sensorMean
+    window_size = args.maverage
+    moving_average = []
+    for i in range(window_size - 1):
+        moving_average.append(None)
 
-# Find and print the complete average value of sensorMean
-print(Fore.BLUE + '[INFO] ' + Style.RESET_ALL + 'The average of sensorMean is: ', (sum(data_raw[4])/len(data_raw[4])))
+    for each in window(data_raw[4], window_size):
+        moving_average.append(sum(each)/len(each))
+
+
+# Find the average of sensorMean and make a list for plotting
+sensorMean_average = sum(data_raw[4])/len(data_raw[4])
+sensorMean_average_list = []
+for i in data_raw[4]:
+    sensorMean_average_list.append(sensorMean_average)
+print(Fore.BLUE + '[INFO] ' + Style.RESET_ALL + 'The average of sensorMean is: ', sensorMean_average)
+
 
 # Plot the data
 # Make a figure that consists of two plots, an upper for sensors, and lower for actuators
@@ -99,10 +110,12 @@ a1.plot(data_raw[0], data_raw[1], label='sensor00 (lower)')
 a1.plot(data_raw[0], data_raw[2], label='sensor01 (upper)')
 a1.plot(data_raw[0], data_raw[3], label='sensor02 (outside)')
 a1.plot(data_raw[0], data_raw[4], label='sensorMean')
-try:
-    a1.plot(data_raw[0], moving_average, label=('moving average, resolution: ' + str(window_size)))
-except:
-    print(Fore.YELLOW + '[WARNING] ' + Style.RESET_ALL + 'Not enough data to create moving window at current resolution')
+if (args.maverage != None):     # Only draw the moving average if maverage is defined
+    try:        # Try to draw the moving average, if this gives and error, then it is most likely caused by too large window
+        a1.plot(data_raw[0], moving_average, label=('moving average, resolution: ' + str(window_size)))
+    except:
+        print(Fore.YELLOW + '[WARNING] ' + Style.RESET_ALL + 'Not enough data to create moving average with specified window')
+a1.plot(data_raw[0], sensorMean_average_list, label=('average: ' + str(round(sensorMean_average, 2))))
 a1.set_title('Sensors')
 a1.set_ylabel("Temperature [C]")
 a1.grid()
